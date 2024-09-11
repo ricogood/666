@@ -1,0 +1,106 @@
+from binance.client import Client
+import time
+
+
+api_key = 'your_api_key'
+api_secret = 'your_api_secret'
+
+client = Client(api_key, api_secret)
+
+
+def get_spot_price(symbol="BTCUSDT"):
+    spot_price = client.get_symbol_ticker(symbol=symbol)
+    return float(spot_price['price'])
+
+
+def get_future_price(symbol="BTCUSDT"):
+    future_price = client.futures_symbol_ticker(symbol=symbol)
+    return float(future_price['price'])
+
+
+def get_funding_rate(symbol="BTCUSDT"):
+    funding_rate_info = client.futures_funding_rate(symbol=symbol)
+    funding_rate = float(funding_rate_info[0]['fundingRate'])
+    return funding_rate
+
+
+def order_spot_buy(symbol, quantity):
+    try:
+        order = client.create_order(
+            symbol=symbol,
+            side=Client.SIDE_BUY,
+            type=Client.ORDER_TYPE_MARKET,
+            quantity=quantity)
+        print("Spot Buy Order Executed:", order)
+    except Exception as e:
+        print(f"Error placing spot buy order: {e}")
+
+
+def order_future_sell(symbol, quantity):
+    try:
+        order = client.futures_create_order(
+            symbol=symbol,
+            side=Client.SIDE_SELL,
+            type='MARKET',
+            quantity=quantity)
+        print("Futures Sell Order Executed:", order)
+    except Exception as e:
+        print(f"Error placing futures sell order: {e}")
+
+
+def close_future_position(symbol, quantity):
+    try:
+        order = client.futures_create_order(
+            symbol=symbol,
+            side=Client.SIDE_BUY,  # 平倉，做空倉位需要買入
+            type='MARKET',
+            quantity=quantity)
+        print("Futures Position Closed:", order)
+    except Exception as e:
+        print(f"Error closing futures position: {e}")
+
+
+def arbitrage(symbol="BTCUSDT", premium_threshold=50):
+    position_opened = False
+    quantity = 0.001  # 假設每次套利 0.001 BTC
+    
+    while True:
+        spot_price = get_spot_price(symbol)
+        future_price = get_future_price(symbol)
+        
+
+        premium = future_price - spot_price
+        
+
+        funding_rate = get_funding_rate(symbol)
+        
+        if premium > premium_threshold and not position_opened:
+            print(f"Premium detected: {premium}. Executing arbitrage.")
+            
+    
+            order_spot_buy(symbol, quantity)
+            
+   
+            order_future_sell(symbol, quantity)
+            
+            position_opened = True
+        
+
+        elif position_opened and funding_rate < 0:
+            print(f"Negative funding rate detected: {funding_rate}. Closing positions.")
+            
+   
+            close_future_position(symbol, quantity)
+            
+ 
+            position_opened = False
+            
+        else:
+            print(f"No arbitrage opportunity. Spot: {spot_price}, Future: {future_price}, Premium: {premium}, Funding Rate: {funding_rate}")
+        
+
+        time.sleep(480)
+
+# 主程序，啟動套利邏輯
+if __name__ == "__main__":
+    arbitrage(symbol="BTCUSDT", premium_threshold=50)
